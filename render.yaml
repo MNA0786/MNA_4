@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: entertainment-tadka-bot
+    env: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: BOT_TOKEN
+        value: 8315381064:AAGk0FGVGmB8j5SjpBvW3rD3_kQHe_hyOWU
+      - key: ADMIN_ID
+        value: "1080317415"
+    healthCheckPath: /
+    autoDeploy: true
