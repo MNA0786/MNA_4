@@ -1,7 +1,6 @@
 <?php
 // ==============================
-// USER ATTRIBUTION FEATURE
-// For caption merging only
+// USER ATTRIBUTION FEATURE - SIMPLIFIED
 // ==============================
 
 class UserAttributionFeature {
@@ -11,19 +10,11 @@ class UserAttributionFeature {
         $this->bot_token = $bot_token;
     }
     
-    public function getUserMention($user_id, $name = null) {
-        if (!$name) {
-            $user_info = $this->getUserInfo($user_id);
-            $name = $user_info['full_name'] ?: $user_info['first_name'] ?: "User";
-            if ($user_info['username']) $name = "@" . $user_info['username'];
-        }
-        return "<a href='tg://user?id={$user_id}'>" . htmlspecialchars($name) . "</a>";
-    }
-    
     public function getUserInfo($user_id) {
         $url = "https://api.telegram.org/bot{$this->bot_token}/getChat";
         $data = ['chat_id' => $user_id];
         $result = $this->sendRequest($url, $data);
+        
         if ($result && isset($result['result'])) {
             $chat = $result['result'];
             return [
@@ -51,16 +42,13 @@ class UserAttributionFeature {
         return ($http_code == 200) ? json_decode($response, true) : null;
     }
     
-    public function getAttributionText($user_id, $requested_by = null) {
-        if ($requested_by) {
-            return "\n\n👤 <b>Requested by:</b> {$requested_by}\n⏰ <i>" . date('d-m-Y H:i:s') . "</i>";
-        } else {
-            return "\n\n📥 <b>Sent to:</b> " . $this->getUserMention($user_id) . "\n⏰ <i>" . date('d-m-Y H:i:s') . "</i>";
-        }
-    }
-    
     public function logAttribution($user_id, $movie_name, $action = 'delivered') {
-        $log_entry = ['timestamp' => date('Y-m-d H:i:s'), 'user_id' => $user_id, 'movie_name' => $movie_name, 'action' => $action];
+        $log_entry = [
+            'timestamp' => date('Y-m-d H:i:s'),
+            'user_id' => $user_id,
+            'movie_name' => $movie_name,
+            'action' => $action
+        ];
         $attribution_log = 'attribution_log.json';
         $logs = file_exists($attribution_log) ? json_decode(file_get_contents($attribution_log), true) : [];
         $logs[] = $log_entry;
@@ -70,14 +58,4 @@ class UserAttributionFeature {
 }
 
 $attribution = new UserAttributionFeature(BOT_TOKEN);
-
-function get_attribution_text($user_id, $requested_by = null) {
-    global $attribution;
-    return $attribution->getAttributionText($user_id, $requested_by);
-}
-
-function log_movie_attribution($user_id, $movie_name, $action = 'delivered') {
-    global $attribution;
-    return $attribution->logAttribution($user_id, $movie_name, $action);
-}
 ?>
