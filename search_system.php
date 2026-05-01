@@ -1,6 +1,6 @@
 <?php
 // ==============================
-// SEARCH & DELIVERY SYSTEM
+// SEARCH & DELIVERY SYSTEM - FINAL
 // ==============================
 
 function smart_search($query) {
@@ -109,119 +109,40 @@ function advanced_search($chat_id, $query, $user_id = null) {
     update_stats('total_searches', 1);
 }
 
-function build_movie_card($item, $channel_link = null) {
-    $movie_name = htmlspecialchars($item['movie_name'] ?? 'Unknown');
-    $quality = htmlspecialchars($item['quality'] ?? 'Unknown');
-    $size = htmlspecialchars($item['size'] ?? 'Unknown');
-    $language = htmlspecialchars($item['language'] ?? 'Hindi');
-    $message_id = $item['message_id'] ?? $item['message_id_raw'] ?? 'N/A';
-    $channel_id = $item['channel_id'] ?? 'N/A';
-    
-    $card = "🎬 <b>" . $movie_name . "</b>\n";
-    $card .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
-    $card .= "📊 <b>Quality:</b> " . $quality . "\n";
-    $card .= "💾 <b>Size:</b> " . $size . "\n";
-    $card .= "🗣️ <b>Language:</b> " . $language . "\n";
-    $card .= "🆔 <b>Message ID:</b> <code>" . $message_id . "</code>\n";
-    $card .= "📢 <b>Channel ID:</b> <code>" . $channel_id . "</code>\n";
-    $card .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
-    
-    if ($channel_link) {
-        $card .= "🔗 <b>Direct Link:</b> " . $channel_link . "\n";
-    }
-    
-    return $card;
-}
-
 function deliver_item_to_chat($chat_id, $item, $user_id = null, $requested_by = null) {
     global $attribution;
     
     sendTypingAction($chat_id);
     
-    if (!isset($item['channel_id']) || empty($item['channel_id'])) {
-        $source_channel = MAIN_CHANNEL_ID;
-    } else {
-        $source_channel = $item['channel_id'];
-    }
+    // Get movie name from CSV
+    $movie_name = $item['movie_name'] ?? 'Unknown';
     
-    $channel_link = get_direct_channel_link($item['message_id'] ?? $item['message_id_raw'], $source_channel);
-    
-    // Prepare attribution text
-    $attribution_text = "";
+    // Get user mention
+    $user_mention = "";
     if ($user_id) {
         if ($requested_by) {
-            $attribution_text = "\n👤 <b>Requested by:</b> {$requested_by}\n⏰ <i>" . date('d-m-Y H:i:s') . "</i>";
+            $user_mention = "\n\n👤 Requested by: {$requested_by}";
         } else {
-            $mention = $attribution->getUserMention($user_id);
-            $attribution_text = "\n📥 <b>Sent to:</b> {$mention}\n⏰ <i>" . date('d-m-Y H:i:s') . "</i>";
+            $user_info = $attribution->getUserInfo($user_id);
+            $username = $user_info['username'] ?? $user_info['first_name'] ?? "User";
+            $user_mention = "\n\n📥 Sent to: @{$username}";
         }
-        $attribution->logAttribution($user_id, $item['movie_name'], 'delivered');
+        $attribution->logAttribution($user_id, $movie_name, 'delivered');
     }
     
-    $delivery_success = false;
-    $message_id_to_copy = null;
+    // Build final message
+    $text = "🎬 " . $movie_name . "\n\n";
+    $text .= "🔥 Channels:\n";
+    $text .= "🍿 Main: @EntertainmentTadka786\n";
+    $text .= "📥 Request: @EntertainmentTadka7860\n";
+    $text .= "🎭 Theater: @threater_print_movies\n";
+    $text .= "📂 Backup: @ETBackup\n";
+    $text .= "📺 Serial: @Entertainment_Tadka_Serial_786";
+    $text .= $user_mention;
     
-    // Get numeric message ID
-    if (!empty($item['message_id']) && is_numeric($item['message_id'])) {
-        $message_id_to_copy = $item['message_id'];
-    } elseif (!empty($item['message_id_raw']) && is_numeric($item['message_id_raw'])) {
-        $message_id_to_copy = $item['message_id_raw'];
-    }
+    sendMessage($chat_id, $text, null, 'HTML');
+    update_stats('total_downloads', 1);
     
-    if ($message_id_to_copy) {
-        sendUploadDocumentAction($chat_id);
-        
-        // Try to get original message to check if it has media
-        $original_msg = json_decode(getMessage($source_channel, $message_id_to_copy), true);
-        $has_media = false;
-        $original_caption = "";
-        
-        if ($original_msg && isset($original_msg['result'])) {
-            $result = $original_msg['result'];
-            
-            if (isset($result['photo']) || isset($result['video']) || isset($result['document']) || isset($result['animation'])) {
-                $has_media = true;
-            }
-            
-            if (isset($result['caption'])) {
-                $original_caption = $result['caption'];
-            }
-        }
-        
-        if ($has_media) {
-            // Message has media, copy it with attribution in caption
-            $final_caption = $original_caption . $attribution_text;
-            $copy_result = json_decode(copyMessage($chat_id, $source_channel, $message_id_to_copy, $final_caption), true);
-            
-            if ($copy_result && $copy_result['ok']) {
-                $delivery_success = true;
-                bot_log("Movie delivered (with media): {$item['movie_name']} to $chat_id");
-            }
-        }
-        
-        // If no media or copy failed, send as text message with movie card
-        if (!$delivery_success) {
-            $movie_card = build_movie_card($item, $channel_link);
-            $final_text = $movie_card . "\n" . $attribution_text;
-            sendMessage($chat_id, $final_text, null, 'HTML', false);
-            $delivery_success = true;
-            bot_log("Movie delivered (as text): {$item['movie_name']} to $chat_id");
-        }
-    }
-    
-    // Final fallback - send simple text
-    if (!$delivery_success) {
-        $movie_card = build_movie_card($item, $channel_link);
-        $final_text = $movie_card . "\n" . $attribution_text;
-        sendMessage($chat_id, $final_text, null, 'HTML', false);
-        $delivery_success = true;
-        bot_log("Movie delivered (fallback): {$item['movie_name']} to $chat_id");
-    }
-    
-    if ($delivery_success) {
-        update_stats('total_downloads', 1);
-    }
-    
-    return $delivery_success;
+    return true;
 }
 ?>
