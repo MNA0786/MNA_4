@@ -91,7 +91,7 @@ function forwardMessage($chat_id, $from_chat_id, $message_id) {
 }
 
 function copyMessage($chat_id, $from_chat_id, $message_id, $caption = null) {
-    sendTypingAction($chat_id);
+    sendUploadDocumentAction($chat_id);
     
     $data = [
         'chat_id' => $chat_id,
@@ -109,5 +109,44 @@ function copyMessage($chat_id, $from_chat_id, $message_id, $caption = null) {
 function getMessage($chat_id, $message_id) {
     $data = ['chat_id' => $chat_id, 'message_id' => $message_id];
     return apiRequest('getMessage', $data);
+}
+
+function sendPhoto($chat_id, $photo, $caption = null, $reply_markup = null) {
+    sendTypingAction($chat_id);
+    
+    $data = [
+        'chat_id' => $chat_id,
+        'photo' => $photo
+    ];
+    if ($caption) $data['caption'] = $caption;
+    if ($reply_markup) $data['reply_markup'] = json_encode($reply_markup);
+    
+    return apiRequest('sendPhoto', $data, true);
+}
+
+function sendVideo($chat_id, $video, $caption = null, $reply_markup = null) {
+    sendUploadDocumentAction($chat_id);
+    
+    $data = [
+        'chat_id' => $chat_id,
+        'video' => $video
+    ];
+    if ($caption) $data['caption'] = $caption;
+    if ($reply_markup) $data['reply_markup'] = json_encode($reply_markup);
+    
+    return apiRequest('sendVideo', $data, true);
+}
+
+function sendDocument($chat_id, $document, $caption = null, $reply_markup = null) {
+    sendUploadDocumentAction($chat_id);
+    
+    $data = [
+        'chat_id' => $chat_id,
+        'document' => $document
+    ];
+    if ($caption) $data['caption'] = $caption;
+    if ($reply_markup) $data['reply_markup'] = json_encode($reply_markup);
+    
+    return apiRequest('sendDocument', $data, true);
 }
 ?>
